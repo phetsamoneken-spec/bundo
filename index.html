@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>ຮ້ານ ກາເຟ & ອາຫານ ລາວ POS - Single File Standalone</title>
+  <meta name="description" content="ລະບົບ POS ຂາຍໜ້າຮ້ານ, ຄິດໄລ່ເງິນກີບ, ແຜນທີ່ GPS ແລະ ສົ່ງອໍເດີ້ຜ່ານ WhatsApp ສຳລັບຮ້ານອາຫານ ແລະ ຄາເຟ່ລາວ" />
+  
+  <!-- Fonts: Noto Sans Lao & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            lao: ['"Noto Sans Lao"', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', '"Noto Sans Lao"', 'sans-serif'],
+          },
+          colors: {
+            primary: '#006c49',
+            'primary-dark': '#005236',
+            'primary-container': '#10b981',
+            'mint-surface': '#ecfdf5',
+            'whatsapp-green': '#25d366',
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- External Libraries: React 18, Babel Standalone & Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Noto Sans Lao', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+      vertical-align: middle;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body class="bg-[#faf8ff] text-[#131b2e] min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    // Currency Formatter
+    const formatKip = (val) => {
+      if (val === undefined || val === null || isNaN(val)) return '0';
+      return new Intl.NumberFormat('en-US').format(Math.round(val));
+    };
+
+    const vibrateSoft = (duration = 15) => {
+      try {
+        if ('vibrate' in navigator) navigator.vibrate(duration);
+      } catch (e) {}
+    };
+
+    const INITIAL_PRODUCTS = [
+      {
+        id: 'item-1',
+        name: 'ກາເຟລາວເຢັນ',
+        nameEn: 'Iced Lao Coffee',
+        sub: 'ເຂັ້ມຂຸ້ນ',
+        category: 'drinks',
+        price: 25000,
+        image: 'https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500&auto=format&fit=crop&q=60',
+        badgeText: 'ຂາຍດີ',
+      },
+      {
+        id: 'item-2',
+        name: 'ຊານົມໄຕ້ຫວັນ ໄຂ່ມຸກ',
+        nameEn: 'Bubble Milk Tea',
+        sub: 'ໜຶບໜັບ',
+        category: 'drinks',
+        price: 28000,
+        image: 'https://images.unsplash.com/photo-1558857563-b37fe8806297?w=500&auto=format&fit=crop&q=60',
+        badgeText: 'ຫວານ 50%',
+      },
+      {
+        id: 'item-3',
+        name: 'ເຝີຊີ້ນງົວພິເສດ',
+        nameEn: 'Pho Beef Special',
+        sub: 'ນ້ຳຊຸບນົວ',
+        category: 'food',
+        price: 45000,
+        image: 'https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=500&auto=format&fit=crop&q=60',
+        badgeText: 'ແນະນຳ',
+      },
+      {
+        id: 'item-4',
+        name: 'ເຂົ້າຜັດກະເພົາໝູກອບ',
+        nameEn: 'Crispy Pork Kra Pao',
+        sub: 'ເຜັດກາງ',
+        category: 'food',
+        price: 38000,
+        image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&auto=format&fit=crop&q=60',
+      },
+      {
+        id: 'item-5',
+        name: 'ຕຳໝາກຮຸ່ງຫຼວງພະບາງ',
+        nameEn: 'Papaya Salad',
+        sub: 'ປາແດກນົວ',
+        category: 'food',
+        price: 30000,
+        image: 'https://images.unsplash.com/photo-1559847844-5315695dadae?w=500&auto=format&fit=crop&q=60',
+        badgeText: 'ເຜັດແຊບ',
+      },
+      {
+        id: 'item-6',
+        name: 'ເຂົ້າໜຽວໝາກມ່ວງ',
+        nameEn: 'Mango Sticky Rice',
+        sub: 'ຫວານມັນ',
+        category: 'desserts',
+        price: 32000,
+        image: 'https://images.unsplash.com/photo-1587314168485-3236d6710814?w=500&auto=format&fit=crop&q=60',
+      },
+    ];
+
+    const INITIAL_STORE = {
+      name: 'ຮ້ານ ກາເຟ & ອາຫານ ລາວ POS',
+      ownerName: 'ສົມສັກ ແກ້ວມະນີ',
+      cashierName: 'ສົມສັກ ແກ້ວມະນີ',
+      phone: '020 5555 1234',
+      lat: 17.9757,
+      lng: 102.6331,
+    };
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('pos-menu');
+      const [products, setProducts] = useState(() => {
+        try {
+          const s = localStorage.getItem('lao_pos_products');
+          return s ? JSON.parse(s) : INITIAL_PRODUCTS;
+        } catch { return INITIAL_PRODUCTS; }
+      });
+      const [cart, setCart] = useState(() => {
+        try {
+          const s = localStorage.getItem('lao_pos_cart');
+          return s ? JSON.parse(s) : { 'item-1': 2, 'item-2': 1, 'item-5': 1 };
+        } catch { return { 'item-1': 2, 'item-2': 1, 'item-5': 1 }; }
+      });
+      const [orders, setOrders] = useState(() => {
+        try {
+          const s = localStorage.getItem('lao_pos_orders');
+          return s ? JSON.parse(s) : [];
+        } catch { return []; }
+      });
+      const [profile, setProfile] = useState(() => {
+        try {
+          const s = localStorage.getItem('lao_pos_profile');
+          return s ? JSON.parse(s) : INITIAL_STORE;
+        } catch { return INITIAL_STORE; }
+      });
+
+      const [categoryFilter, setCategoryFilter] = useState('all');
+      const [searchQuery, setSearchQuery] = useState('');
+      const [orderNote, setOrderNote] = useState('');
+      const [discount, setDiscount] = useState(0);
+      const [cashGiven, setCashGiven] = useState('');
+      const [toastMsg, setToastMsg] = useState('');
+      const [isGpsOpen, setIsGpsOpen] = useState(false);
+      const [showAddModal, setShowAddModal] = useState(false);
+
+      useEffect(() => { localStorage.setItem('lao_pos_products', JSON.stringify(products)); }, [products]);
+      useEffect(() => { localStorage.setItem('lao_pos_cart', JSON.stringify(cart)); }, [cart]);
+      useEffect(() => { localStorage.setItem('lao_pos_orders', JSON.stringify(orders)); }, [orders]);
+      useEffect(() => { localStorage.setItem('lao_pos_profile', JSON.stringify(profile)); }, [profile]);
+
+      const showToast = (msg) => {
+        setToastMsg(msg);
+        setTimeout(() => setToastMsg(''), 3000);
+      };
+
+      const handleUpdateQty = (id, delta) => {
+        vibrateSoft();
+        setCart(prev => {
+          const next = (prev[id] || 0) + delta;
+          if (next <= 0) {
+            const copy = { ...prev };
+            delete copy[id];
+            return copy;
+          }
+          return { ...prev, [id]: next };
+        });
+      };
+
+      const cartItems = useMemo(() => {
+        return Object.entries(cart).map(([id, q]) => {
+          const p = products.find(x => x.id === id);
+          return p ? { product: p, quantity: q } : null;
+        }).filter(Boolean);
+      }, [cart, products]);
+
+      const subtotal = useMemo(() => cartItems.reduce((s, i) => s + i.product.price * i.quantity, 0), [cartItems]);
+      const totalKip = Math.max(0, subtotal - discount);
+      const totalCount = useMemo(() => Object.values(cart).reduce((a, b) => a + b, 0), [cart]);
+      const changeAmount = cashGiven ? Math.max(0, parseInt(cashGiven, 10) - totalKip) : 0;
+
+      const handleWhatsApp = () => {
+        if (!cartItems.length) return showToast('ກະຕ່າວ່າງເປົ່າ!');
+        const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
+        let msg = '🧾 *ໃບບິນສັ່ງຊື້ - ' + profile.name + '*\\n';
+        msg += '🔢 ເລກທີບິນ: ' + orderId + '\\n';
+        msg += '🕒 ເວລາ: ' + new Date().toLocaleString('lo-LA') + '\\n';
+        msg += '👤 ພະນັກງານ: ' + profile.cashierName + '\\n--------------------------------\\n';
+        cartItems.forEach((it, idx) => {
+          msg += (idx + 1) + '. *' + it.product.name + '* x ' + it.quantity + ' = ' + formatKip(it.product.price * it.quantity) + ' ກີບ\\n';
+        });
+        msg += '--------------------------------\\n';
+        msg += '💵 ລວມຍອດ: ' + formatKip(subtotal) + ' ກີບ\\n';
+        if (discount > 0) msg += '🏷️ ສ່ວນຫຼຸດ: -' + formatKip(discount) + ' ກີບ\\n';
+        msg += '⭐ *ຍອດສຸດທິ: ' + formatKip(totalKip) + ' ກີບ*\\n';
+        if (orderNote) msg += '📝 ໝາຍເຫດ: ' + orderNote + '\\n';
+        msg += '📍 GPS ຮ້ານ: https://maps.google.com/?q=' + profile.lat + ',' + profile.lng + '\\n';
+        msg += '🙏 ຂອບໃຈທີ່ມາອຸດໜູນ!';
+        window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(msg), '_blank');
+        showToast('ສົ່ງໄປ WhatsApp ແລ້ວ 🚀');
+      };
+
+      const handleCompleteSale = () => {
+        if (!cartItems.length) return showToast('ກະລຸນາເລືອກສິນຄ້າກ່ອນ');
+        if (typeof confetti === 'function') confetti({ particleCount: 70, spread: 60 });
+        const newOrder = {
+          id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
+          createdAt: new Date().toISOString(),
+          items: cartItems.map(i => ({ productName: i.product.name, quantity: i.quantity, unitPrice: i.product.price })),
+          subtotal,
+          discount,
+          total: totalKip,
+        };
+        setOrders(prev => [newOrder, ...prev]);
+        setCart({});
+        setOrderNote('');
+        setDiscount(0);
+        setCashGiven('');
+        showToast('🎉 ບັນທຶກການຂາຍ ' + formatKip(totalKip) + ' ກີບ ແລ້ວ!');
+      };
+
+      // Add Product Modal Form States
+      const [newName, setNewName] = useState('');
+      const [newPrice, setNewPrice] = useState('25000');
+      const [newCategory, setNewCategory] = useState('drinks');
+      const [newImage, setNewImage] = useState('');
+
+      const handleAddProduct = (e) => {
+        e.preventDefault();
+        if (!newName.trim()) return showToast('ກະລຸນາປ້ອນຊື່ສິນຄ້າ');
+        const p = {
+          id: 'item-' + Date.now(),
+          name: newName.trim(),
+          nameEn: newName.trim(),
+          sub: 'ເມນູໃໝ່',
+          category: newCategory,
+          price: parseInt(newPrice, 10) || 25000,
+          image: newImage.trim() || 'https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500&auto=format&fit=crop&q=60',
+        };
+        setProducts(prev => [p, ...prev]);
+        setShowAddModal(false);
+        setNewName('');
+        setNewImage('');
+        showToast('ເພີ່ມສິນຄ້າສຳເລັດແລ້ວ!');
+      };
+
+      const filtered = useMemo(() => {
+        return products.filter(p => {
+          const matchC = categoryFilter === 'all' || p.category === categoryFilter;
+          const matchS = !searchQuery || p.name.includes(searchQuery) || p.nameEn.toLowerCase().includes(searchQuery.toLowerCase());
+          return matchC && matchS;
+        });
+      }, [products, categoryFilter, searchQuery]);
+
+      return (
+        <div className="flex flex-col min-h-screen max-w-lg mx-auto bg-[#faf8ff] pb-24 shadow-2xl relative">
+          {/* Header */}
+          <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-emerald-900/10 px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#006c49] to-[#10b981] flex items-center justify-center text-white shadow-sm">
+                <span className="material-symbols-outlined text-[24px]">point_of_sale</span>
+              </div>
+              <div>
+                <h1 className="font-bold text-[#006c49] text-[15px]">{profile.name}</h1>
+                <button onClick={() => setIsGpsOpen(true)} className="text-[11px] text-[#3c4a42] flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse"></span>
+                  <span>GPS: {profile.lat.toFixed(4)}, {profile.lng.toFixed(4)}</span>
+                </button>
+              </div>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-[#006c49] text-white flex items-center justify-center text-xs font-bold shadow-xs">
+              POS
+            </div>
+          </header>
+
+          {/* Toast Notification */}
+          {toastMsg && (
+            <div className="fixed top-16 right-4 z-50 bg-[#131b2e] text-white px-4 py-2.5 rounded-2xl shadow-xl text-xs flex items-center gap-2 border border-white/10 animate-bounce">
+              <span className="material-symbols-outlined text-[#10b981] text-[18px]">check_circle</span>
+              <span>{toastMsg}</span>
+            </div>
+          )}
+
+          {/* TAB 1: POS MENU */}
+          {activeTab === 'pos-menu' && (
+            <main className="p-4 flex flex-col gap-3">
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-gray-400 text-[20px]">search</span>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="ຄົ້ນຫາເມນູ..."
+                  className="w-full pl-10 pr-4 py-2.5 bg-white rounded-2xl border border-emerald-900/10 text-xs shadow-xs focus:ring-2 focus:ring-[#10b981] outline-none"
+                />
+              </div>
+
+              <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
+                {[
+                  { id: 'all', label: 'ທັງໝົດ 🌟' },
+                  { id: 'drinks', label: 'ເຄື່ອງດື່ມ ☕' },
+                  { id: 'food', label: 'ອາຫານ 🍜' },
+                  { id: 'desserts', label: 'ຂອງຫວານ 🥭' },
+                ].map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => { vibrateSoft(); setCategoryFilter(c.id); }}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${categoryFilter === c.id ? 'bg-[#006c49] text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-100'}`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mt-1">
+                {filtered.map(p => {
+                  const q = cart[p.id] || 0;
+                  return (
+                    <div key={p.id} className="bg-white rounded-3xl p-3 border border-emerald-900/10 shadow-xs flex flex-col justify-between">
+                      <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-gray-50 mb-2">
+                        <img src={p.image} className="w-full h-full object-cover" />
+                        {p.badgeText && (
+                          <span className="absolute top-2 left-2 bg-[#006c49] text-white text-[10px] font-bold px-2 py-0.5 rounded-lg">
+                            {p.badgeText}
+                          </span>
+                        )}
+                        {q > 0 && (
+                          <span className="absolute top-2 right-2 bg-[#10b981] text-white text-xs font-extrabold w-6 h-6 rounded-full flex items-center justify-center shadow-md">
+                            {q}
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-sm text-gray-900 truncate">{p.name}</h3>
+                        <p className="text-[11px] text-gray-500 truncate">{p.nameEn}</p>
+                        <p className="text-sm font-black text-[#006c49] mt-1">{formatKip(p.price)} ກີບ</p>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-gray-100">
+                        {q > 0 ? (
+                          <div className="flex items-center justify-between">
+                            <button onClick={() => handleUpdateQty(p.id, -1)} className="w-8 h-8 rounded-xl bg-gray-100 font-bold">-</button>
+                            <span className="font-bold text-sm">{q}</span>
+                            <button onClick={() => handleUpdateQty(p.id, 1)} className="w-8 h-8 rounded-xl bg-[#006c49] text-white font-bold">+</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => handleUpdateQty(p.id, 1)} className="w-full py-1.5 rounded-xl bg-emerald-50 text-[#006c49] text-xs font-bold flex items-center justify-center gap-1">
+                            <span className="material-symbols-outlined text-[16px]">add_shopping_cart</span>
+                            <span>ສັ່ງຊື້</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </main>
+          )}
+
+          {/* TAB 2: CART & WHATSAPP */}
+          {activeTab === 'cart-and-whatsapp' && (
+            <main className="p-4 flex flex-col gap-3">
+              <h2 className="font-bold text-lg text-[#006c49]">ກະຕ່າສິນຄ້າ ({totalCount} ລາຍການ)</h2>
+              {!cartItems.length ? (
+                <div className="bg-white rounded-3xl p-8 text-center text-gray-400 text-xs">ກະຕ່າວ່າງເປົ່າ</div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {cartItems.map(it => (
+                    <div key={it.product.id} className="bg-white rounded-2xl p-3 border border-emerald-900/10 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <img src={it.product.image} className="w-10 h-10 rounded-xl object-cover" />
+                        <div>
+                          <p className="font-bold text-xs">{it.product.name}</p>
+                          <p className="text-[10px] text-gray-500">{formatKip(it.product.price)} x {it.quantity}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => handleUpdateQty(it.product.id, -1)} className="w-7 h-7 bg-gray-100 rounded-lg font-bold">-</button>
+                        <span className="text-xs font-bold w-4 text-center">{it.quantity}</span>
+                        <button onClick={() => handleUpdateQty(it.product.id, 1)} className="w-7 h-7 bg-[#006c49] text-white rounded-lg font-bold">+</button>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="bg-white rounded-2xl p-3 border border-emerald-900/10 flex flex-col gap-1 text-xs">
+                    <div className="flex justify-between"><span>ລວມຍອດ:</span><span>{formatKip(subtotal)} ກີບ</span></div>
+                    {discount > 0 && <div className="flex justify-between text-amber-600"><span>ສ່ວນຫຼຸດ:</span><span>-{formatKip(discount)} ກີບ</span></div>}
+                    <div className="flex justify-between text-sm font-black text-[#006c49] pt-1 border-t">
+                      <span>ຍອດສຸດທິ:</span><span>{formatKip(totalKip)} ກີບ</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-2xl p-3 border border-emerald-900/10 flex flex-col gap-2">
+                    <input
+                      type="text"
+                      placeholder="ໝາຍເຫດອໍເດີ້..."
+                      value={orderNote}
+                      onChange={e => setOrderNote(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-[#faf8ff] rounded-xl text-xs border border-gray-200"
+                    />
+                    <div className="grid grid-cols-4 gap-1">
+                      {[50000, 100000, 200000, 500000].map(amt => (
+                        <button key={amt} onClick={() => setCashGiven(amt.toString())} className="py-1 bg-gray-50 text-[10px] font-bold rounded-lg border">
+                          {amt / 1000}k
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        placeholder="ຮັບເງິນສົດ..."
+                        value={cashGiven}
+                        onChange={e => setCashGiven(e.target.value)}
+                        className="flex-1 px-3 py-1.5 bg-[#faf8ff] rounded-xl text-xs font-bold border"
+                      />
+                      {changeAmount > 0 && (
+                        <span className="text-xs font-black text-amber-600">ທອນ: {formatKip(changeAmount)} ₭</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    <button onClick={handleWhatsApp} className="py-3 bg-[#25d366] text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 shadow-md">
+                      <span className="material-symbols-outlined text-[16px]">chat</span>
+                      <span>ສົ່ງ WhatsApp</span>
+                    </button>
+                    <button onClick={handleCompleteSale} className="py-3 bg-[#006c49] text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 shadow-md">
+                      <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                      <span>ບັນທຶກການຂາຍ</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </main>
+          )}
+
+          {/* TAB 3: SALES DASHBOARD */}
+          {activeTab === 'sales-dashboard' && (
+            <main className="p-4 flex flex-col gap-3">
+              <h2 className="font-bold text-lg text-[#006c49]">ສະຫຼຸບຍອດຂາຍ</h2>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-white p-3 rounded-2xl border border-emerald-900/10">
+                  <p className="text-[11px] text-gray-500">ຍອດຂາຍລວມ</p>
+                  <p className="text-base font-black text-[#006c49]">{formatKip(orders.reduce((a, b) => a + b.total, 0))} ກີບ</p>
+                </div>
+                <div className="bg-white p-3 rounded-2xl border border-emerald-900/10">
+                  <p className="text-[11px] text-gray-500">ອໍເດີ້ທັງໝົດ</p>
+                  <p className="text-base font-black text-gray-800">{orders.length} ອໍເດີ້</p>
+                </div>
+              </div>
+            </main>
+          )}
+
+          {/* TAB 4: ORDER HISTORY */}
+          {activeTab === 'order-history' && (
+            <main className="p-4 flex flex-col gap-2">
+              <h2 className="font-bold text-lg text-[#006c49]">ປະຫວັດການຂາຍ</h2>
+              {!orders.length ? (
+                <p className="text-xs text-gray-400 text-center py-6">ບໍ່ມີປະຫວັດອໍເດີ້</p>
+              ) : (
+                orders.map(o => (
+                  <div key={o.id} className="bg-white p-3 rounded-2xl border border-emerald-900/10 flex justify-between items-center text-xs">
+                    <div>
+                      <p className="font-bold text-[#006c49]">{o.id}</p>
+                      <p className="text-[10px] text-gray-400">{new Date(o.createdAt).toLocaleString('lo-LA')}</p>
+                    </div>
+                    <span className="font-bold">{formatKip(o.total)} ກີບ</span>
+                  </div>
+                ))
+              )}
+            </main>
+          )}
+
+          {/* TAB 5: CATALOG & SETTINGS */}
+          {activeTab === 'catalog-settings' && (
+            <main className="p-4 flex flex-col gap-3">
+              <div className="flex justify-between items-center">
+                <h2 className="font-bold text-lg text-[#006c49]">ຈັດການເມນູ & ຮ້ານ</h2>
+                <button onClick={() => setShowAddModal(true)} className="px-3 py-1.5 bg-[#006c49] text-white text-xs font-bold rounded-xl flex items-center gap-1 shadow-sm">
+                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  <span>ເພີ່ມເມນູ</span>
+                </button>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-emerald-900/10 flex flex-col gap-2 text-xs">
+                <label className="font-bold text-gray-600">ຊື່ຮ້ານ</label>
+                <input
+                  type="text"
+                  value={profile.name}
+                  onChange={e => setProfile({ ...profile, name: e.target.value })}
+                  className="px-3 py-2 bg-[#faf8ff] rounded-xl border border-gray-200"
+                />
+                <label className="font-bold text-gray-600">ຊື່ພະນັກງານ</label>
+                <input
+                  type="text"
+                  value={profile.cashierName}
+                  onChange={e => setProfile({ ...profile, cashierName: e.target.value })}
+                  className="px-3 py-2 bg-[#faf8ff] rounded-xl border border-gray-200"
+                />
+                <label className="font-bold text-gray-600">ເບີໂທຕິດຕໍ່</label>
+                <input
+                  type="text"
+                  value={profile.phone}
+                  onChange={e => setProfile({ ...profile, phone: e.target.value })}
+                  className="px-3 py-2 bg-[#faf8ff] rounded-xl border border-gray-200"
+                />
+              </div>
+
+              {/* Product delete items */}
+              <div className="bg-white p-4 rounded-2xl border border-emerald-900/10 flex flex-col gap-2">
+                <h3 className="font-bold text-xs text-gray-800">ລາຍການສິນຄ້າ ({products.length})</h3>
+                {products.map(p => (
+                  <div key={p.id} className="flex justify-between items-center text-xs p-1.5 border-b border-gray-50">
+                    <span>{p.name} ({formatKip(p.price)} ₭)</span>
+                    <button
+                      onClick={() => {
+                        if (confirm(`ລຶບ "${p.name}"?`)) {
+                          setProducts(prev => prev.filter(x => x.id !== p.id));
+                        }
+                      }}
+                      className="text-red-500 font-bold"
+                    >
+                      ລຶບ
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </main>
+          )}
+
+          {/* Floating Cart Pill */}
+          {activeTab === 'pos-menu' && totalCount > 0 && (
+            <div className="fixed bottom-20 inset-x-4 max-w-md mx-auto z-40">
+              <button
+                onClick={() => { vibrateSoft(); setActiveTab('cart-and-whatsapp'); }}
+                className="w-full bg-[#006c49] text-white p-3.5 rounded-2xl shadow-xl flex items-center justify-between active:scale-95 transition-all"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-white text-[#006c49] font-bold text-xs flex items-center justify-center">
+                    {totalCount}
+                  </span>
+                  <span className="font-bold text-xs">ເບິ່ງກະຕ່າສິນຄ້າ</span>
+                </div>
+                <span className="font-black text-xs">{formatKip(totalKip)} ກີບ →</span>
+              </button>
+            </div>
+          )}
+
+          {/* Bottom Nav */}
+          <nav className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-emerald-900/10 p-1.5 max-w-lg mx-auto flex justify-around">
+            {[
+              { id: 'pos-menu', label: 'ເມນູ', icon: 'shopping_bag' },
+              { id: 'cart-and-whatsapp', label: 'ກະຕ່າ', icon: 'shopping_cart', badge: totalCount },
+              { id: 'sales-dashboard', label: 'ສະຫຼຸບ', icon: 'bar_chart' },
+              { id: 'order-history', label: 'ປະຫວັດ', icon: 'receipt_long' },
+              { id: 'catalog-settings', label: 'ຕັ້ງຄ່າ', icon: 'tune' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => { vibrateSoft(); setActiveTab(tab.id); }}
+                className={`flex flex-col items-center py-1 px-2 text-xs relative ${activeTab === tab.id ? 'text-[#006c49] font-bold' : 'text-gray-400'}`}
+              >
+                <span className="material-symbols-outlined text-[20px]">{tab.icon}</span>
+                {tab.badge > 0 && (
+                  <span className="absolute top-0 right-1 bg-[#10b981] text-white text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-bold">
+                    {tab.badge}
+                  </span>
+                )}
+                <span className="text-[10px]">{tab.label}</span>
+              </button>
+            ))}
+          </nav>
+
+          {/* Add Product Modal */}
+          {showAddModal && (
+            <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+              <form onSubmit={handleAddProduct} className="bg-white rounded-3xl p-5 max-w-sm w-full flex flex-col gap-2.5 text-xs">
+                <h3 className="font-bold text-sm text-[#006c49]">ເພີ່ມເມນູສິນຄ້າໃໝ່</h3>
+                <input
+                  type="text"
+                  required
+                  placeholder="ຊື່ສິນຄ້າ *"
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  className="px-3 py-2 bg-gray-50 rounded-xl border border-gray-200"
+                />
+                <input
+                  type="number"
+                  step="1000"
+                  required
+                  placeholder="ລາຄາ (ກີບ) *"
+                  value={newPrice}
+                  onChange={e => setNewPrice(e.target.value)}
+                  className="px-3 py-2 bg-gray-50 rounded-xl border border-gray-200 font-bold"
+                />
+                <select
+                  value={newCategory}
+                  onChange={e => setNewCategory(e.target.value)}
+                  className="px-3 py-2 bg-gray-50 rounded-xl border border-gray-200"
+                >
+                  <option value="drinks">ເຄື່ອງດື່ມ</option>
+                  <option value="food">ອາຫານ</option>
+                  <option value="desserts">ຂອງຫວານ</option>
+                </select>
+                <input
+                  type="url"
+                  placeholder="URL ຮູບພາບ (ທາງເລືອກ)"
+                  value={newImage}
+                  onChange={e => setNewImage(e.target.value)}
+                  className="px-3 py-2 bg-gray-50 rounded-xl border border-gray-200"
+                />
+                <div className="flex gap-2 mt-2">
+                  <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-2 bg-gray-100 rounded-xl font-bold">ຍົກເລີກ</button>
+                  <button type="submit" className="flex-1 py-2 bg-[#006c49] text-white rounded-xl font-bold">ບັນທຶກ</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* GPS Modal */}
+          {isGpsOpen && (
+            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl p-5 max-w-sm w-full flex flex-col gap-3 text-xs">
+                <h3 className="font-bold text-sm text-[#006c49]">ພິກັດ GPS ຮ້ານ</h3>
+                <div className="bg-emerald-50 p-3 rounded-xl flex flex-col gap-1">
+                  <span>Latitude: <b>{profile.lat}</b></span>
+                  <span>Longitude: <b>{profile.lng}</b></span>
+                </div>
+                <button
+                  onClick={() => {
+                    if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition((pos) => {
+                        setProfile(prev => ({ ...prev, lat: pos.coords.latitude, lng: pos.coords.longitude }));
+                        showToast('ອັບເດດພິກັດປັດຈຸບັນແລ້ວ! 📍');
+                      });
+                    }
+                  }}
+                  className="py-2.5 bg-emerald-100 text-[#006c49] rounded-xl font-bold"
+                >
+                  ໃຊ້ຕຳແໜ່ງປັດຈຸບັນຂອງຂ້ອຍ
+                </button>
+                <button onClick={() => setIsGpsOpen(false)} className="py-2 bg-[#006c49] text-white rounded-xl font-bold">
+                  ປິດ
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
